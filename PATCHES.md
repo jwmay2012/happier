@@ -57,3 +57,9 @@ These changes do not introduce a custom Codex transport. Use the normal Happier
 shared-control startup and native terminal attachment workflow. Transport
 configuration and deployment-specific hostnames, accounts, secrets, and rollout
 instructions are deliberately outside this repository.
+
+The web new-session modal delegates keyboard avoidance to Expo Router's drawer.
+Its simple and wizard composers suppress their second keyboard lift; native
+layouts keep the existing behavior. A production-browser viewport test reproduced
+the prompt moving above the screen before the change and remaining visible after
+it, including keyboard dismissal. UI typecheck and13 related tests pass.

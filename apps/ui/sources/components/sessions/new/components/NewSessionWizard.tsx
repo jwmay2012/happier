@@ -506,6 +506,8 @@ export const NewSessionWizard = React.memo(function NewSessionWizard(props: NewS
         >
             <PopoverBoundaryProvider boundaryRef={props.popoverBoundaryRef}>
                 <ComposerKeyboardScaffold
+                    // Expo Router's web modal already follows the visual viewport above the keyboard.
+                    keyboardLiftSuppressed={Platform.OS === 'web'}
                     headerHeight={headerHeight}
                     safeAreaBottom={safeAreaBottom}
                     mode="newSession"
