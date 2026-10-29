@@ -2670,7 +2670,7 @@ export function createCodexAppServerRuntime(params: Readonly<{
             if (typeof params.session.sendUserTextMessageCommitted !== 'function') return;
             await flushItemTranscriptBoundary(null);
             await params.session.sendUserTextMessageCommitted(update.text, {
-                localId: `codex-app-server-user:${context.streamScopeId}:${update.itemId}`,
+                localId: clientId ?? `codex-app-server-user:${context.streamScopeId}:${update.itemId}`,
                 meta: { importedFrom: 'codex-app-server' },
             });
             return;

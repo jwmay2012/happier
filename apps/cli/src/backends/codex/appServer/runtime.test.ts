@@ -5322,7 +5322,7 @@ describe('createCodexAppServerRuntime', () => {
         expect(sendUserTextMessageCommitted).toHaveBeenCalledWith(
             'hello from attached Codex TUI',
             {
-                localId: 'codex-app-server-user:thread-started:native_user_1',
+                localId: 'native-tui-client-1',
                 meta: { importedFrom: 'codex-app-server' },
             },
         );
@@ -5352,7 +5352,7 @@ describe('createCodexAppServerRuntime', () => {
         expect(sendUserTextMessageCommitted).toHaveBeenCalledWith(
             'hello from attached Codex TUI',
             {
-                localId: 'codex-app-server-user:thread-started:native_user_1',
+                localId: 'native-tui-client-1',
                 meta: { importedFrom: 'codex-app-server' },
             },
         );
