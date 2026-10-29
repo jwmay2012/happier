@@ -4,6 +4,7 @@ import type { ReducerState } from '../reducer';
 import { parseMessageAsEvent } from '../messageToEvent';
 import { setThinkingMergeCursor } from '../helpers/mergeCursors';
 import { normalizeTranscriptSeq } from '../../domains/messages/transcriptOrdering';
+import { reconcileUserMessageEcho } from '../helpers/reconcileUserMessageEcho';
 import {
   readAcpToolCallSnapshotRevision,
   readMessageToolSnapshotRevision,
@@ -49,7 +50,7 @@ export function runMessageToEventConversion({
       msg.transcriptObservationProvenance,
     );
     // Check if we've already processed this message
-    if (!isRecoveredHistory && msg.role === 'user' && msg.localId && state.localIds.has(msg.localId)) {
+    if (reconcileUserMessageEcho({ state, message: msg, changed })) {
       continue;
     }
     if (state.messageIds.has(msg.id)) {

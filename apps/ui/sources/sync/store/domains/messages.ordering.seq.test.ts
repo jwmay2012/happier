@@ -746,6 +746,51 @@ describe('messages domain: ordering', () => {
         expect(get().sessionPending.s1.messages.map((message: any) => message.id)).toEqual(['pending-server-local-1']);
     });
 
+    it.each([
+        { nativeFirst: true, sameBatch: false },
+        { nativeFirst: false, sameBatch: false },
+        { nativeFirst: true, sameBatch: true },
+        { nativeFirst: false, sameBatch: true },
+    ])('retains user echo bookkeeping (nativeFirst=$nativeFirst, sameBatch=$sameBatch)', ({ nativeFirst, sameBatch }) => {
+        const localId = 'native-user-client-1';
+        const { get, domain } = createHarness({
+            sessions: { s1: createSessionFixture({ id: 's1', seq: 4, metadata: null }) },
+            sessionPending: {
+                s1: {
+                    isLoaded: true,
+                    discarded: [],
+                    messages: [
+                        { id: 'local-projection', localId, source: 'local_outbound', createdAt: 1_000, updatedAt: 1_000,
+                            text: 'same input', rawRecord: { role: 'user', content: { type: 'text', text: 'same input' } } },
+                        { id: 'server-owned', localId, source: 'server_pending', pendingDeliveryStatus: 'server_delivering',
+                            createdAt: 1_000, updatedAt: 1_000, text: 'same input',
+                            rawRecord: { role: 'user', content: { type: 'text', text: 'same input' } } },
+                    ],
+                },
+            },
+        });
+        const native: NormalizedMessage = {
+            id: 'codex:native:thread:["turn","item"]:0', localId, createdAt: 1_000,
+            isSidechain: false, role: 'user', content: { type: 'text', text: 'same input' },
+        };
+        const relay: NormalizedMessage = { ...native, id: 'relay-user-1', seq: 7, createdAt: 1_100 };
+
+        const messages: [NormalizedMessage, NormalizedMessage] = nativeFirst ? [native, relay] : [relay, native];
+        domain.applyMessages('s1', sameBatch ? messages : [messages[0]]);
+        const firstTranscript = get().sessionMessages.s1;
+        const firstRow: Message = firstTranscript.messagesById[firstTranscript.messageIdsOldestFirst[0]];
+        expect(get().sessionPending.s1.messages.map((message: { id: string }) => message.id)).toEqual(['server-owned']);
+        if (!sameBatch) domain.applyMessages('s1', [messages[1]]);
+
+        const transcript = get().sessionMessages.s1;
+        expect(transcript.messageIdsOldestFirst).toHaveLength(1);
+        const row: Message = transcript.messagesById[transcript.messageIdsOldestFirst[0]];
+        expect(row).toMatchObject({ kind: 'user-text', id: firstRow.id, createdAt: firstRow.createdAt, localId, text: 'same input' });
+        expect(get().sessionPending.s1.messages.map((message: { id: string }) => message.id)).toEqual(['server-owned']);
+        expect.soft(row.seq).toBe(7);
+        expect.soft(get().sessions.s1.seq).toBe(7);
+    });
+
     it('does not clear a live optimistic pending row from a recovered historical localId collision', () => {
         const { get, domain } = createHarness({
             sessions: {
