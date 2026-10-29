@@ -63,3 +63,9 @@ Its simple and wizard composers suppress their second keyboard lift; native
 layouts keep the existing behavior. A production-browser viewport test reproduced
 the prompt moving above the screen before the change and remaining visible after
 it, including keyboard dismissal. UI typecheck and13 related tests pass.
+
+The web session composer also subtracts navigation space already reserved below
+its keyboard scaffold, matching the native calculation. Keyboard visibility and
+available editor height retain the absolute keyboard measurement. The shared
+helper keeps its native worklet annotation;50 web/native geometry tests and the
+UI typecheck pass.
