@@ -104,9 +104,9 @@ export function useDirectSessionTakeover(params: UseDirectSessionTakeoverParams)
             try {
                 await Promise.all([
                     currentParamsRef.current.directSessionRuntime.refreshNow(),
-                    sync.refreshSessionMessages(params.sessionId),
                     sync.refreshSessions(),
                 ]);
+                void sync.refreshSessionMessages(params.sessionId).catch(() => {});
                 refreshed = true;
                 if (mountedOwnerRef.current === owner) setImportStatusError(null);
             } catch (error) {
@@ -261,7 +261,8 @@ export function useDirectSessionTakeover(params: UseDirectSessionTakeoverParams)
             }
             const result = await machineDirectSessionTakeover(request, { serverId });
             if (!result.ok) { Modal.alert(t('common.error'), result.error); return false; }
-            await Promise.all([readLatestStatus(), sync.refreshSessionMessages(params.sessionId)]);
+            await readLatestStatus();
+            void sync.refreshSessionMessages(params.sessionId).catch(() => {});
             return true;
         } catch (error) {
             if (mountedOwnerRef.current !== owner) return false;
@@ -280,7 +281,11 @@ export function useDirectSessionTakeover(params: UseDirectSessionTakeoverParams)
         if (requestInFlightRef.current || terminalRefreshingRef.current || (isImportActive(operationRef.current) && observation === 'available')) return false;
         if (!currentParamsRef.current.directSessionRuntime.directSessionLink) return true;
         const latestStatus = await readLatestStatus();
-        if (!latestStatus || latestStatus.runnerActive) return true;
+        if (!latestStatus) {
+            Modal.alert(t('common.error'), t('errors.failedToSwitchControl'));
+            return false;
+        }
+        if (latestStatus.runnerActive) return true;
         if (!latestStatus.machineOnline) {
             Modal.alert(t('common.error'), t('chatFooter.directSessionMachineOffline'));
             return false;
