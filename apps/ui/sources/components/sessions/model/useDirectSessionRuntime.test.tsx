@@ -164,7 +164,7 @@ describe('useDirectSessionRuntime', () => {
 
   it.each(['session', 'link', 'disabled', 'unlinked'] as const)('ignores a delayed status after its %s owner changes', async (change) => {
     const delayed = createDeferred<NonNullable<HookValue['status']>>();
-    const oldStatus = { ok: true, machineOnline: true, activity: 'idle', runnerActive: false, canTakeOverDirect: true } as const;
+    const oldStatus = { ok: true, machineOnline: true, activity: 'idle', runnerActive: false, canTakeOverDirect: true, canTakeOverPersist: true, canForceStop: false } as const;
     const newStatus = { ...oldStatus, runnerActive: true, canTakeOverDirect: false };
     machineDirectSessionStatusGetSpy.mockReturnValueOnce(delayed.promise).mockResolvedValue(newStatus);
     refreshSessionMessagesSpy.mockResolvedValue(undefined);
@@ -173,11 +173,11 @@ describe('useDirectSessionRuntime', () => {
     const initial: Params = {
       sessionId: 'session-a',
       enabled: true,
-      metadata: { directSessionV1: { v: 1, providerId: 'codex', machineId: 'machine-1', remoteSessionId: 'native-a', source: { kind: 'codexHome', home: 'user' } } } as Params['metadata'],
+      metadata: { path: '/tmp/workspace', host: 'test-host', directSessionV1: { v: 1, providerId: 'codex', machineId: 'machine-1', remoteSessionId: 'native-a', source: { kind: 'codexHome', home: 'user' } } },
     };
     const hook = await renderHook((params: Params) => useDirectSessionRuntime(params), { initialProps: initial });
     const next: Params = change === 'session' ? { ...initial, sessionId: 'session-b' }
-      : change === 'link' ? { ...initial, metadata: { directSessionV1: { v: 1, providerId: 'codex', machineId: 'machine-1', remoteSessionId: 'native-b', source: { kind: 'codexHome', home: 'user' } } } as Params['metadata'] }
+      : change === 'link' ? { ...initial, metadata: { path: '/tmp/workspace', host: 'test-host', directSessionV1: { v: 1, providerId: 'codex', machineId: 'machine-1', remoteSessionId: 'native-b', source: { kind: 'codexHome', home: 'user' } } } }
         : change === 'disabled' ? { ...initial, enabled: false } : { ...initial, metadata: null };
     try {
       await hook.rerender(next);
