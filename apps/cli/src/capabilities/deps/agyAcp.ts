@@ -10,6 +10,7 @@ import { AGY_ACP_SERVER_VERSION } from '@happier-dev/protocol/installables';
 import { extractArchivePayloadToDirectory } from '@happier-dev/release-runtime/archiveExtraction';
 
 import { configuration } from '@/configuration';
+import { isExternalNetworkAccessEnabled } from '@/utils/externalNetworkAccess';
 import { readRuntimeInstallableLastCheckAtMs } from '@/installables/runtime/runtimeInstallableUpdateState';
 import { resolveAgyAcpReleaseAsset } from '@/runtime/managedTools/providers/agyAcpRelease';
 
@@ -307,7 +308,7 @@ export async function getAgyAcpDepStatus(opts?: { includeLatestVersion?: boolean
   const installDir = agyAcpInstallDir();
   const state = await readAgyAcpState();
   const binPath = await verifyExistingAgyAcpManagedBinPath();
-  const includeLatestVersion = opts?.includeLatestVersion === true;
+  const includeLatestVersion = opts?.includeLatestVersion === true && isExternalNetworkAccessEnabled();
   const onlyIfInstalled = opts?.onlyIfInstalled === true;
   const latestVersionCheck: LatestVersionCheck | undefined =
     includeLatestVersion && (!onlyIfInstalled || binPath !== null)

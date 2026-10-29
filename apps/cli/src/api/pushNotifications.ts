@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { boundExpoPushMessage } from './boundExpoPushMessage'
 import { logger } from '@/ui/logger'
+import { isExternalNetworkAccessEnabled } from '@/utils/externalNetworkAccess'
 import { Expo, ExpoPushMessage } from 'expo-server-sdk'
 import { withServerUrlInPushData } from './pushNotificationData'
 import { serializeAxiosErrorForLog } from './client/serializeAxiosErrorForLog'
@@ -220,6 +221,7 @@ export class PushNotificationClient {
      * @param messages - Array of push messages to send
      */
     async sendPushNotifications(messages: ExpoPushMessage[]): Promise<Readonly<{ invalidTokens: ReadonlyArray<string>; invalidCredentials: boolean }>> {
+        if (!isExternalNetworkAccessEnabled()) return { invalidTokens: [], invalidCredentials: false }
         const debugPush = isPushDebugEnabled()
         if (debugPush) logger.debug(`Sending ${messages.length} push notifications`)
         const invalidTokens = new Set<string>()

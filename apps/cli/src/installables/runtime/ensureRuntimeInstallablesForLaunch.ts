@@ -6,6 +6,7 @@ import {
   type RuntimeInstallableAdapter,
 } from './runtimeInstallablesRegistry';
 import { startBackgroundRuntimeInstallableUpdate } from './startBackgroundRuntimeInstallableUpdate';
+import { isExternalNetworkAccessEnabled } from '@/utils/externalNetworkAccess';
 
 type Deps = Readonly<{
   getRuntimeInstallableAdapter: (installableKey: InstallableKey) => Promise<RuntimeInstallableAdapter>;
@@ -52,7 +53,7 @@ export async function ensureRuntimeInstallablesForLaunch(
     let resolution = await adapter.detectLaunchResolution({ env: params.env });
     let installedThisLaunch = false;
 
-    if (!params.readinessOnly && !resolution.availability.ok && resolution.canAutoInstall && policy.autoInstallWhenNeeded) {
+    if (!params.readinessOnly && isExternalNetworkAccessEnabled(params.env) && !resolution.availability.ok && resolution.canAutoInstall && policy.autoInstallWhenNeeded) {
       const installResult = await adapter.installOrUpgrade();
       if (!installResult.ok) {
         return {
@@ -77,7 +78,7 @@ export async function ensureRuntimeInstallablesForLaunch(
       };
     }
 
-    if (!params.readinessOnly && !installedThisLaunch && resolution.availability.ok && resolution.canBackgroundAutoUpdate && policy.autoUpdateMode === 'auto') {
+    if (!params.readinessOnly && isExternalNetworkAccessEnabled(params.env) && !installedThisLaunch && resolution.availability.ok && resolution.canBackgroundAutoUpdate && policy.autoUpdateMode === 'auto') {
       void deps.startBackgroundRuntimeInstallableUpdate({
         installableKey,
         adapter,

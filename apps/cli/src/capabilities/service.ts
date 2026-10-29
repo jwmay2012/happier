@@ -11,6 +11,7 @@ import type {
     ChecklistId,
 } from './types';
 import { CapabilityError } from './errors';
+import { isExternalNetworkAccessEnabled } from '@/utils/externalNetworkAccess';
 import type { DetectCliSnapshot } from './snapshots/cliSnapshot';
 
 export type CapabilitiesDetectContext = {
@@ -131,6 +132,9 @@ export function createCapabilitiesService(opts: {
         }
 
         try {
+            if (method === 'install' && !isExternalNetworkAccessEnabled()) {
+                return { ok: false, error: { message: 'External network access is disabled', code: 'external-network-disabled' } };
+            }
             return await cap.invoke({ method, params: data?.params, ...(context?.signal ? { signal: context.signal } : {}) });
         } catch (e) {
             const message = e instanceof Error ? e.message : 'Invoke failed';

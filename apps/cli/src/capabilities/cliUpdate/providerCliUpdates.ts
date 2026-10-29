@@ -10,6 +10,7 @@ import { AsyncTtlCache } from '@happier-dev/protocol';
 import { compareVersions } from '@happier-dev/cli-common/update';
 
 import { configuration } from '@/configuration';
+import { isExternalNetworkAccessEnabled } from '@/utils/externalNetworkAccess';
 import { buildDetectContext } from '@/capabilities/context/buildDetectContext';
 import { invalidateCliSnapshots } from '@/capabilities/snapshots/cliSnapshot';
 import type { Capability, CapabilitiesDetectContextBuilder } from '@/capabilities/service';
@@ -116,7 +117,7 @@ export function withProviderCliUpdates(cap: Capability, agentId: AgentId, deps: 
       installSource: facts.installSource,
       updateSupported: facts.updateSupported,
       updateCommand: facts.updateCommand,
-      ...(params.includeLatestVersion === true
+      ...(params.includeLatestVersion === true && isExternalNetworkAccessEnabled(env)
         ? { latestVersion: (await readLatestVersion(facts.installSource, params.bypassCache === true))?.latestVersion ?? null }
         : {}),
     };

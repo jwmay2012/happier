@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -47,7 +47,7 @@ describe.skipIf(process.platform === 'win32')('withProviderCliUpdates', () => {
   let launcher: string;
 
   beforeEach(() => {
-    root = createTempDirSync('happier-provider-cli-updates-');
+    root = realpathSync(createTempDirSync('happier-provider-cli-updates-'));
     home = join(root, 'home');
     const versioned = writeExecutable(join(home, '.local', 'share', 'claude', 'versions', '2.1.0'));
     launcher = join(home, '.local', 'bin', 'claude');
@@ -70,6 +70,18 @@ describe.skipIf(process.platform === 'win32')('withProviderCliUpdates', () => {
       ...overrides,
     };
   }
+
+  it('does not request registry facts when external network access is disabled', async () => {
+    const fetchLatestVersion = vi.fn(async () => ({ latestVersion: '2.2.0', heldVersion: null }));
+    const cap = withProviderCliUpdates(
+      createInstalledCliCapability({ resolvedPath: launcher, version: () => '2.1.0' }),
+      'claude',
+      deps({ env: { HOME: home, PATH: '', HAPPIER_EXTERNAL_NETWORK_ACCESS: '0' }, fetchLatestVersion }),
+    );
+    const result = await cap.detect({ request: { id: 'cli.claude', params: { includeLatestVersion: true, bypassCache: true } }, context: { cliSnapshot: null } });
+    expect(result).toMatchObject({ available: true, version: '2.1.0' });
+    expect(fetchLatestVersion).not.toHaveBeenCalled();
+  });
 
   it('reports the install owner, its update command and a cached latest version', async () => {
     const fetchLatestVersion = vi.fn(async () => ({ latestVersion: '2.2.0', heldVersion: null }));

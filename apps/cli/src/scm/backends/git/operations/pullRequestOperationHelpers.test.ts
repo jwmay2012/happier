@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
     buildConnectedServiceCredentialRecord,
@@ -16,6 +16,17 @@ const githubProvider = {
 } as const satisfies ScmHostingProvider;
 
 describe('pull request operation helpers', () => {
+    afterEach(() => vi.unstubAllEnvs());
+
+    it('does not probe hosted CLI authentication when external network access is disabled', async () => {
+        vi.stubEnv('HAPPIER_EXTERNAL_NETWORK_ACCESS', '0');
+        const { resolveHostingAuthProfileKey } = await import('./pullRequestOperationHelpers');
+        const detectGithubCliAuth = vi.fn(async () => ({ kind: 'authenticated' as const, command: 'gh' as const, host: 'github.com' }));
+        const context: ScmBackendContext = { cwd: '/repo', projectKey: 'test:/repo', detection: { isRepo: true, rootPath: '/repo', mode: '.git' } };
+        await expect(resolveHostingAuthProfileKey({ context, provider: githubProvider, detectGithubCliAuth })).resolves.toBeNull();
+        expect(detectGithubCliAuth).not.toHaveBeenCalled();
+    });
+
     it('returns connected-account github auth with an auth profile cache key for github.com', async () => {
         const mod = await import('./pullRequestOperationHelpers') as Record<string, unknown>;
         const resolveGithubConnectedAccountAuth = mod.resolveGithubConnectedAccountAuth;

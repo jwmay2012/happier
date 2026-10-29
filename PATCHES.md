@@ -23,9 +23,9 @@ cases, streaming across tool boundaries, refresh, and full history import. The
 release-based source relay image builds, including the server typecheck and Expo
 web export, and passes two-account isolation and mobile-width signup. Full UI
 typecheck passes with the complete source checkout and build dependencies.
-The full CLI typecheck is not established in the UI-only dependency environment;
-CLI-specific dependencies are missing. The complete upstream test suite and a
-Kaniko execution have not been validated.
+The full CLI typecheck and source CLI build also pass with the complete dependency
+installation. The complete upstream test suite and a Kaniko execution have not
+been validated.
 
 Packaging is a separate logical change: `Dockerfile.relay` retains only upstream's
 source relay/UI stages, with the SQLite relay plus web export as its final target.
@@ -42,6 +42,16 @@ existing build feature policy (`app.analytics,app.crashReports`). Expo build
 telemetry and central server Sentry reporting are disabled as well. Deployments
 should leave both `SENTRY_DSN` and `HAPPIER_SENTRY_DSN` empty. This does not disable
 local operational logs or encrypted synchronization with the selected relay.
+
+For the CLI, `HAPPIER_EXTERNAL_NETWORK_ACCESS=0` suppresses provider/helper latest
+version lookups, passive hosted-Git authentication checks, outbound notifications,
+capability installation and automatic prerequisite/runtime downloads. Existing
+local runtimes remain usable. The restriction and supported reporting/feature
+settings propagate to daemon-spawned terminal runners, including tmux. Combine
+this with `HAPPIER_CLI_UPDATE_CHECK=0`, denied bug-report/voice/connected-service/
+bridge features, disabled memory indexing and empty remote-debug logging settings.
+It is an application policy for these paths, not an OS firewall for child agents;
+provider processes and intentional agent tools retain their own network access.
 
 These changes do not introduce a custom Codex transport. Use the normal Happier
 shared-control startup and native terminal attachment workflow. Transport

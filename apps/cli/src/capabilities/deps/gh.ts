@@ -9,6 +9,7 @@ import { resolveWindowsCommandOnPath } from '@happier-dev/cli-common/process';
 import { fetchGitHubLatestRelease } from '@happier-dev/release-runtime/github';
 
 import { configuration } from '@/configuration';
+import { isExternalNetworkAccessEnabled } from '@/utils/externalNetworkAccess';
 import { readRuntimeInstallableLastCheckAtMs } from '@/installables/runtime/runtimeInstallableUpdateState';
 import { GH_GITHUB_REPO, resolveGhReleaseAsset } from '@/runtime/managedTools/providers/ghRelease';
 
@@ -260,7 +261,7 @@ export async function getGhDepStatus(opts?: {
   const installDir = ghInstallDir();
   const state = await readGhState();
   const resolvedBinPath = resolveSystemGhBinPath() ?? resolveExistingGhManagedBinPath();
-  const includeLatestVersion = opts?.includeLatestVersion === true;
+  const includeLatestVersion = opts?.includeLatestVersion === true && isExternalNetworkAccessEnabled();
   const onlyIfInstalled = opts?.onlyIfInstalled === true;
   const latestVersionCheck = includeLatestVersion && (!onlyIfInstalled || resolvedBinPath !== null)
     ? await detectLatestVersionCheck()

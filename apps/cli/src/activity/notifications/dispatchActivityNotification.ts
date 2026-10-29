@@ -4,6 +4,7 @@ import {
 } from '@happier-dev/protocol';
 
 import { logger } from '@/ui/logger';
+import { isExternalNetworkAccessEnabled } from '@/utils/externalNetworkAccess';
 import type { ActivityNotificationEvent } from './activityNotificationEvent';
 import {
   sendExpoPushActivityNotificationAsync,
@@ -149,6 +150,7 @@ export async function dispatchActivityNotificationAsync(params: Readonly<{
   dedupeMaxEntries?: number;
 }>): Promise<Readonly<{ attemptedChannels: number; deliveredChannels: number; suppressedChannels: number }>> {
   const channels = resolveNotificationChannelsV1FromAccountSettings(params.settings ?? null);
+  if (!isExternalNetworkAccessEnabled()) return { attemptedChannels: 0, deliveredChannels: 0, suppressedChannels: channels.length };
   const nowMs = (params.nowMs ?? (() => Date.now()))();
   const dedupeWindowMs = params.dedupeWindowMs ?? DEFAULT_NOTIFICATION_DEDUPE_WINDOW_MS;
   const dedupeMaxEntries = normalizeDedupeMaxEntries(params.dedupeMaxEntries);

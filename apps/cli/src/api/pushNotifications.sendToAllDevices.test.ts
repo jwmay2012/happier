@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import axios from 'axios';
 
@@ -54,6 +54,14 @@ vi.mock('expo-server-sdk', () => {
 });
 
 describe('PushNotificationClient.sendToAllDevicesAsync', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('does not send to Expo when external network access is disabled', async () => {
+    vi.stubEnv('HAPPIER_EXTERNAL_NETWORK_ACCESS', '0');
+    await new PushNotificationClient('t', 'https://api.example.test').sendPushNotifications([{ to: 'ExponentPushToken[a]', title: 'Private', body: 'Private' }]);
+    expect(sendPushNotificationsAsyncSpy).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     sendPushNotificationsAsyncSpy.mockClear();
     getPushNotificationReceiptsAsyncSpy.mockClear();
