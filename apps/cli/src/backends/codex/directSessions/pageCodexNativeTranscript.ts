@@ -116,7 +116,8 @@ export async function pageCodexNativeTranscript(params: Readonly<{
         const localId = `${params.remoteSessionId}:${kind}:${entry.item.id}`;
         for (const message of messages) {
           message.localId = localId;
-          message.raw = { ...message.raw, meta: { ...message.raw.meta, happierStreamSegmentV1: {
+          const meta = message.raw.meta && typeof message.raw.meta === 'object' ? message.raw.meta : {};
+          message.raw = { ...message.raw, meta: { ...meta, happierStreamSegmentV1: {
             v: 1, segmentKind: kind === 'assistant' ? 'assistant' : 'thinking', segmentLocalId: localId,
             segmentState: entry.completedAtMs === null ? 'streaming' : 'complete',
             ...(entry.completedAtMs === null ? {} : { updatedAtMs: entry.completedAtMs }),
