@@ -37,6 +37,12 @@ Pass `BUILDPLATFORM=linux/amd64` and `HAPPIER_BUILD_DB_PROVIDERS=all`: TypeScrip
 checks statically imported clients for all providers even though runtime is SQLite.
 This image does not execute Codex agents or ship a running laptop daemon.
 
+The source relay image disables web analytics and crash reporting through the
+existing build feature policy (`app.analytics,app.crashReports`). Expo build
+telemetry and central server Sentry reporting are disabled as well. Deployments
+should leave both `SENTRY_DSN` and `HAPPIER_SENTRY_DSN` empty. This does not disable
+local operational logs or encrypted synchronization with the selected relay.
+
 These changes do not introduce a custom Codex transport. Use the normal Happier
 shared-control startup and native terminal attachment workflow. Transport
 configuration and deployment-specific hostnames, accounts, secrets, and rollout
