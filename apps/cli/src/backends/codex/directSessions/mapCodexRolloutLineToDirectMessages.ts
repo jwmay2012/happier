@@ -64,7 +64,7 @@ export function mapCodexProjectedEventsToDirectMessages(params: Readonly<{
     const stableId = params.idForIndex(i);
 
     if (action.type === 'user-text') {
-      if (shouldFilterHarnessBlob(action.text)) continue;
+      if (!action.nativeContent && shouldFilterHarnessBlob(action.text)) continue;
       out.push({
         id: stableId,
         localId: stableId,
@@ -72,6 +72,26 @@ export function mapCodexProjectedEventsToDirectMessages(params: Readonly<{
         raw: {
           role: 'user',
           content: { type: 'text', text: action.text },
+          ...(action.nativeContent ? { meta: { codexNativeContentV1: action.nativeContent } } : {}),
+        },
+      });
+      continue;
+    }
+
+    if (action.type === 'native-event') {
+      out.push({
+        id: stableId,
+        localId: stableId,
+        createdAtMs,
+        messageRole: 'event',
+        raw: {
+          role: 'agent',
+          content: {
+            type: 'event',
+            id: stableId,
+            data: { type: 'message', message: `Codex history: ${String(action.item.type)}\n\n\`\`\`json\n${JSON.stringify(action.item, null, 2)}\n\`\`\`` },
+          },
+          meta: { codexNativeItemV1: action.item },
         },
       });
       continue;
@@ -87,8 +107,8 @@ export function mapCodexProjectedEventsToDirectMessages(params: Readonly<{
           content: {
             type: 'codex',
             data: {
-              type: 'thinking',
-              text: action.text,
+              type: 'reasoning',
+              message: action.text,
               ...(action.sidechainId ? { sidechainId: action.sidechainId } : {}),
             },
           },

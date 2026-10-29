@@ -30,6 +30,36 @@ function createDeferred<T>() {
 }
 
 describe('createKeyedStreamedTranscriptBridge', () => {
+  it('preserves provider item identity across live snapshots and the final commit', async () => {
+    vi.useFakeTimers();
+    const calls: TranscriptCall[] = [];
+    const bridge = createKeyedStreamedTranscriptBridge({
+      provider: 'codex',
+      makeLocalId: ({ streamKey }: { streamKey: string }) => streamKey,
+      createSessionForStream: () => ({
+        sendAgentMessageEphemeral: (provider, body, opts) => {
+          calls.push({ provider, body, localId: opts.localId, meta: opts.meta });
+          return { accepted: true, epoch: 0 };
+        },
+        sendAgentMessageCommitted: async (provider, body, opts) => {
+          calls.push({ provider, body, localId: opts.localId, meta: opts.meta });
+        },
+      }),
+    });
+    const stream = { streamKey: 'native-thread:assistant:native-item', sidechainId: null };
+    bridge.appendAssistantDelta({ ...stream, deltaText: 'hel' });
+    await vi.advanceTimersByTimeAsync(1_000);
+    bridge.appendAssistantDelta({ ...stream, deltaText: 'lo' });
+    await bridge.flushAll({ reason: 'turn-end' });
+    expect(calls.some(call => readMessageBody(call).message === 'hel')).toBe(true);
+    expect(readMessageBody(calls.at(-1)!).message).toBe('hello');
+    expect(new Set(calls.map(call => call.localId))).toEqual(new Set([stream.streamKey]));
+    expect(calls.at(-1)?.meta).toMatchObject({ happierStreamSegmentV1: {
+      segmentLocalId: stream.streamKey, segmentState: 'complete',
+    } });
+    vi.useRealTimers();
+  });
+
   it.each(['turn-end', 'matching', 'admission'] as const)(
     'recovers a failed %s snapshot without absorbing its successor or changing its terminal state',
     async (boundary) => {

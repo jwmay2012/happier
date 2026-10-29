@@ -46,7 +46,7 @@ describe('pageCodexTranscript', () => {
       direction: 'older', maxItems: 10, maxBytes: 64 * 1024,
     });
     expect(page.items.map(item => item.raw)).toMatchObject([
-      { role: 'agent', content: { type: 'codex', data: { type: 'thinking', text: 'Check the boundary' } } },
+      { role: 'agent', content: { type: 'codex', data: { type: 'reasoning', message: 'Check the boundary' } } },
       { role: 'agent', content: { type: 'codex', data: { type: 'message', message: 'answer' } } },
     ]);
     expect(JSON.stringify(page.items)).not.toContain('opaque-private-reasoning');
@@ -532,7 +532,7 @@ describe('pageCodexTranscript', () => {
           raw: expect.objectContaining({
             role: 'agent',
             content: expect.objectContaining({ data: expect.objectContaining({
-              type: 'thinking', text: 'child reasoning', sidechainId: childThreadId,
+              type: 'reasoning', message: 'child reasoning', sidechainId: childThreadId,
             }) }),
           }),
         }),
