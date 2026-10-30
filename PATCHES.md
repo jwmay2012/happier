@@ -69,3 +69,10 @@ its keyboard scaffold, matching the native calculation. Keyboard visibility and
 available editor height retain the absolute keyboard measurement. The shared
 helper keeps its native worklet annotation;50 web/native geometry tests and the
 UI typecheck pass.
+
+Table cells containing inline links or formatting now use the existing enriched
+Markdown renderer; unchanged plain cells retain their lightweight text path.
+Original cell Markdown reaches the rich parser unchanged, preserving globs,
+literal code and complete URL destinations. Real-renderer regression coverage
+includes nested bold links, parenthesized URLs, safe link activation and unsafe
+target rejection. Existing table scrolling, alignment and copying tests pass.

@@ -9,6 +9,7 @@ import { Typography } from '@/constants/Typography';
 import { MermaidRenderer } from './MermaidRenderer';
 import { t } from '@/text';
 import { MarkdownSpansView } from './MarkdownSpansView';
+import { parseMarkdownSpans } from './parseMarkdownSpans';
 import { MarkdownCodeBlock } from './MarkdownCodeBlock';
 import { serializeMarkdownTable } from './serializeMarkdownTable';
 import type { StreamingTextRevealPreset } from './streaming/streamingTextRevealConfig';
@@ -429,7 +430,12 @@ function RenderTableCellContent(props: Readonly<{
     agentTexMath: boolean;
 }>) {
     if (!containsPotentialEnrichedMath(props.markdown, props.agentTexMath)) {
-        return <Text selectable={props.selectable} style={props.textStyle}>{props.markdown}</Text>;
+        // Only classify plain cells here; the rich renderer owns formatting and link parsing.
+        // Rendering these legacy spans would alter globs and truncate parenthesized URLs.
+        const spans = parseMarkdownSpans(props.markdown, false);
+        const plain = spans.length === 0 || (spans.length === 1 && !spans[0]!.url
+            && spans[0]!.styles.length === 0 && spans[0]!.text === props.markdown);
+        if (plain) return <Text selectable={props.selectable} style={props.textStyle}>{props.markdown}</Text>;
     }
 
     return (
