@@ -27,6 +27,7 @@ type KeyedStreamFlushArgs<TArgs extends KeyedStreamArgs> = Readonly<{
 export function createKeyedStreamedTranscriptBridge<TArgs extends KeyedStreamArgs>(params: Readonly<{
   provider: ACPProvider;
   createSessionForStream: (args: TArgs) => StreamedTranscriptWriterSession;
+  makeLocalId?: (args: TArgs) => string;
   initialCheckpointDelayMs?: number | null;
   checkpointIntervalMs?: number | null;
   checkpointMinChars?: number | null;
@@ -52,6 +53,7 @@ export function createKeyedStreamedTranscriptBridge<TArgs extends KeyedStreamArg
     const writer = createStreamedTranscriptWriter({
       provider: params.provider,
       session: params.createSessionForStream(args),
+      ...(params.makeLocalId ? { makeLocalId: () => params.makeLocalId!(args) } : {}),
       initialCheckpointDelayMs: params.initialCheckpointDelayMs,
       checkpointIntervalMs: params.checkpointIntervalMs,
       checkpointMinChars: params.checkpointMinChars,
@@ -73,11 +75,17 @@ export function createKeyedStreamedTranscriptBridge<TArgs extends KeyedStreamArg
     },
 
     overrideAssistantText(args: TArgs & Readonly<{ text: string }>) {
-      getOrCreateWriter(args).overrideAssistantText(args.text, { sidechainId: args.sidechainId });
+      const writer = getOrCreateWriter(args);
+      if (!writer.overrideAssistantText(args.text, { sidechainId: args.sidechainId })) {
+        writer.appendAssistantDelta(args.text, { sidechainId: args.sidechainId });
+      }
     },
 
     overrideThinkingText(args: TArgs & Readonly<{ text: string }>) {
-      getOrCreateWriter(args).overrideThinkingText(args.text, { sidechainId: args.sidechainId });
+      const writer = getOrCreateWriter(args);
+      if (!writer.overrideThinkingText(args.text, { sidechainId: args.sidechainId })) {
+        writer.appendThinkingDelta(args.text, { sidechainId: args.sidechainId });
+      }
     },
 
     mergeAssistantMeta(args: TArgs & Readonly<{ meta: Record<string, unknown> }>) {

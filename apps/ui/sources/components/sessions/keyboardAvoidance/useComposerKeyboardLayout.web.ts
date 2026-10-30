@@ -6,6 +6,7 @@ import { resolveWebVisualViewportKeyboardInset } from '@/hooks/ui/resolveWebVisu
 import {
     resolveAvailablePanelHeight,
     resolveComposerBottomOffset,
+    resolveKeyboardHeightWithinScaffold,
 } from './composerKeyboardGeometry';
 import type { ComposerKeyboardLayout } from './ComposerKeyboardContext';
 import type { ComposerKeyboardLayoutOptions } from './useComposerKeyboardLayout.native';
@@ -39,6 +40,8 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
     const dimensions = useWindowDimensions();
     const safeAreaBottom = options.safeAreaBottom ?? 0;
     const headerHeight = options.headerHeight ?? 0;
+    const layoutBottomInset = typeof options.layoutBottomInset === 'number' && Number.isFinite(options.layoutBottomInset)
+        ? Math.max(0, options.layoutBottomInset) : 0;
     const availablePanelMaxHeight = typeof options.availablePanelMaxHeight === 'number' && Number.isFinite(options.availablePanelMaxHeight)
         ? Math.max(0, options.availablePanelMaxHeight)
         : undefined;
@@ -110,7 +113,10 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
         keyboardHeightForInset.value = keyboardHeight;
         keyboardProgress.value = keyboardHeight > 0 ? 1 : 0;
         notifyKeyboardHeight(effectiveKeyboardHeight);
-        bottomInset.value = resolveComposerBottomOffset({ keyboardHeight: effectiveKeyboardHeight, safeAreaBottom });
+        bottomInset.value = resolveComposerBottomOffset({
+            keyboardHeight: resolveKeyboardHeightWithinScaffold(effectiveKeyboardHeight, layoutBottomInset),
+            safeAreaBottom,
+        });
         listBottomInset.value = 0;
         notifyListBottomInset(0);
         availablePanelHeight.value = resolveAvailablePanelHeight({
@@ -137,6 +143,7 @@ export function useComposerKeyboardLayout(options: ComposerKeyboardLayoutOptions
         notifyKeyboardHeight,
         notifyListBottomInset,
         notifyAvailablePanelHeight,
+        layoutBottomInset,
         safeAreaBottom,
     ]);
 

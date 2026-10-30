@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeAll, afterAll, afterEach, describe, expect, it, vi } from 'vitest';
+import { TranscriptRawRecordV1Schema } from '@happier-dev/protocol';
 
 import { loadDirectSessionTranscriptItems } from '@/api/directSessions/import/loadDirectSessionTranscriptItems';
 import { DirectSessionsProviderUnavailableError } from '@/backends/directSessions/providerOps';
@@ -48,6 +49,52 @@ async function fixture(items: readonly unknown[] | null) {
 }
 
 describe('Codex native paginated direct history (0.162.1 contract)', () => {
+  it('reconciles live user echoes by client identity without merging repeated text', async () => {
+    const f = await fixture([
+      { ...message('u1', 'repeat', 'user'), item: { ...message('u1', 'repeat', 'user').item, clientId: 'browser-send-1' } },
+      { ...message('u2', 'repeat', 'user'), item: { ...message('u2', 'repeat', 'user').item, clientId: 'browser-send-2' } },
+      message('u3', 'repeat', 'user'),
+    ]);
+    const items = await loadDirectSessionTranscriptItems({ readPage: cursor => pageCodexTranscript({
+      ...f.params, direction: 'older', cursor,
+    }) });
+    expect(items.map(item => item.localId)).toEqual([
+      'browser-send-1', 'browser-send-2', 'codex-app-server-user:thread-native:u3',
+    ]);
+    expect(new Set(items.map(item => item.id)).size).toBe(3);
+  });
+
+  it('projects native assistant text as an updatable snapshot with the live item identity', async () => {
+    const f = await fixture([message('a1', 'hello', 'agent'), message('a2', 'hello', 'agent')]);
+    const items = await loadDirectSessionTranscriptItems({ readPage: cursor => pageCodexTranscript({
+      ...f.params, direction: 'older', cursor,
+    }) });
+    expect(items.map(item => item.localId)).toEqual(['thread-native:assistant:a1', 'thread-native:assistant:a2']);
+    expect(items[0]?.raw).toMatchObject({ meta: { happierStreamSegmentV1: {
+      v: 1, segmentKind: 'assistant', segmentLocalId: 'thread-native:assistant:a1', segmentState: 'complete',
+      updatedAtMs: 2_000,
+    } } });
+  });
+
+  it('imports native reasoning as thinking between the user and answer, without exposing encrypted content', async () => {
+    const f = await fixture([message('u1', 'question', 'user'),
+      { turnId: 'turn-a1', startedAtMs: 1_000, completedAtMs: 2_000,
+        item: { id: 'r1', type: 'reasoning', content: [], summary: ['Check the boundary', 'Then verify'], encrypted_content: 'opaque-private-reasoning' } },
+      { turnId: 'turn-a1', startedAtMs: 1_000, completedAtMs: 2_000,
+        item: { id: 'r2', type: 'reasoning', content: [], summary: [], encrypted_content: 'opaque-private-reasoning' } },
+      message('a1', 'answer', 'agent')]);
+    const items = await loadDirectSessionTranscriptItems({ readPage: cursor => pageCodexTranscript({
+      ...f.params, maxItems: 1, direction: 'older', cursor,
+    }) });
+    expect(items.map(item => item.raw)).toMatchObject([
+      { role: 'user', content: { type: 'text', text: 'question' } },
+      { role: 'agent', content: { type: 'codex', data: { type: 'reasoning', message: 'Check the boundary\n\nThen verify' } } },
+      { role: 'agent', content: { type: 'codex', data: { type: 'message', message: 'answer' } } },
+    ]);
+    expect(JSON.stringify(items)).not.toContain('opaque-private-reasoning');
+    for (const item of items) expect(TranscriptRawRecordV1Schema.safeParse(item.raw).success).toBe(true);
+  });
+
   it('imports every native history page instead of importing the list preview, without resuming the thread', async () => {
     const f = await fixture([message('u1', 'question one', 'user'), message('a1', 'answer one', 'agent'),
       message('u2', 'question two', 'user'), message('a2', 'answer two', 'agent')]);
@@ -97,12 +144,40 @@ describe('Codex native paginated direct history (0.162.1 contract)', () => {
     expect(items[1]?.raw).toMatchObject({ content: { data: { output: { stdout: '/project', exitCode: 0 } } } });
   });
 
-  it('rejects native mixed media instead of importing only its text as complete history', async () => {
+  it('preserves native mixed media as explicit references with the original input parts', async () => {
+    const content = [{ type: 'text', text: 'question with image' }, { type: 'localImage', path: '/tmp/screenshot.png', detail: 'original' }];
     const f = await fixture([{ ...message('mixed', 'question with image', 'user'), item: { id: 'mixed', type: 'userMessage',
-      content: [{ type: 'text', text: 'question with image' }, { type: 'image', url: 'https://example.invalid/image.png' }] } }]);
-    await expect(loadDirectSessionTranscriptItems({ readPage: cursor => pageCodexTranscript({
+      content } }]);
+    const items = await loadDirectSessionTranscriptItems({ readPage: cursor => pageCodexTranscript({
       ...f.params, direction: 'older', cursor,
-    }) })).rejects.toBeInstanceOf(DirectSessionsProviderUnavailableError);
+    }) });
+    expect(items).toHaveLength(1);
+    expect(items[0]?.raw).toMatchObject({ role: 'user', meta: { codexNativeContentV1: content } });
+    expect(JSON.stringify(items[0]?.raw.content)).toContain('question with image');
+    expect(JSON.stringify(items[0]?.raw.content)).toContain('/tmp/screenshot.png');
+  });
+
+  it('retains searches, image views, subagent activity and literal harness-marker text across native pages', async () => {
+    const events = [
+      { id: 'sleep-1', type: 'sleep', status: 'completed', durationMs: 1000 },
+      { id: 'future-1', type: 'futureNativeActivity', detail: { preserved: true } },
+      { id: 'collab-1', type: 'collabAgentToolCall', tool: 'wait', status: 'completed', senderThreadId: 'parent', receiverThreadIds: ['child'], agentsStates: {} },
+      { id: 'search-1', type: 'webSearch', query: 'docs', action: { type: 'openPage', url: 'https://example.test' }, results: [{ title: 'Docs', url: 'https://example.test' }] },
+      { id: 'view-1', type: 'imageView', path: '/tmp/screenshot.png' },
+      ...['started', 'interacted', 'completed'].map((kind, index) => ({ id: `agent-${index}`, type: 'subAgentActivity', agentThreadId: 'child-1', agentPath: '/root/reviewer', kind, model: 'example-model', reasoningEffort: 'high' })),
+    ];
+    const f = await fixture([message('u1', 'Please explain # AGENTS.md instructions in this file.', 'user'),
+      ...events.map(item => ({ turnId: 'turn-events', startedAtMs: 1_000, completedAtMs: 2_000, item })),
+      message('a1', 'The answer remains after all activity.', 'agent')]);
+    const readAll = () => loadDirectSessionTranscriptItems({ readPage: cursor => pageCodexTranscript({ ...f.params, maxItems: 1, direction: 'older', cursor }) });
+    const items = await readAll();
+    const raw = items.map(item => TranscriptRawRecordV1Schema.parse(item.raw));
+    expect(items).toHaveLength(events.length + 2);
+    expect(items[0]?.raw).toMatchObject({ role: 'user', content: { text: 'Please explain # AGENTS.md instructions in this file.' } });
+    expect(raw.slice(1, -1).map(item => item.meta?.codexNativeItemV1)).toEqual(events);
+    expect(raw.slice(1, -1).every(item => item.content.type === 'event')).toBe(true);
+    expect(JSON.stringify(items.at(-1))).toContain('The answer remains after all activity.');
+    expect((await readAll()).map(item => item.id)).toEqual(items.map(item => item.id));
   });
 
   it('distinguishes confirmed empty native history from unavailable history', async () => {

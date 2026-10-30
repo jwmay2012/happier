@@ -6,6 +6,7 @@ import { runOnJS, useDerivedValue, useSharedValue } from 'react-native-reanimate
 import {
     resolveAvailablePanelHeight,
     resolveComposerBottomOffset,
+    resolveKeyboardHeightWithinScaffold,
     resolveListBottomInset,
 } from './composerKeyboardGeometry';
 import type { ComposerKeyboardLayout } from './ComposerKeyboardContext';
@@ -74,11 +75,6 @@ function resolveAndroidFinalFrameKeyboardHeight(
             : 0;
 
     return Math.max(reportedHeight, heightFromScreenY);
-}
-
-function resolveKeyboardHeightWithinScaffold(keyboardHeight: number, layoutBottomInset: number): number {
-    'worklet';
-    return Math.max(0, keyboardHeight - Math.max(0, layoutBottomInset));
 }
 
 /**

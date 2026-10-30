@@ -63,6 +63,11 @@ export function resolveComposerBottomOffset({ keyboardHeight, safeAreaBottom }: 
     return Math.max(normalizeNonNegativeNumber(keyboardHeight), normalizeNonNegativeNumber(safeAreaBottom));
 }
 
+export function resolveKeyboardHeightWithinScaffold(keyboardHeight: number, layoutBottomInset: number): number {
+    'worklet';
+    return Math.max(0, keyboardHeight - Math.max(0, layoutBottomInset));
+}
+
 // Marked as a worklet so the one formula for the list's bottom inset stays canonical on both
 // threads: the JS-side layout writer notifies settled totals with it, and the UI-side derived
 // value recomputes the same total per keyboard frame.

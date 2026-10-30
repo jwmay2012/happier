@@ -102,6 +102,28 @@ export async function pageCodexNativeTranscript(params: Readonly<{
       const messages = mapCodexProjectedEventsToDirectMessages({ projected,
         createdAtMs: entry.startedAtMs ?? entry.completedAtMs ?? 0,
         idForIndex: action => `codex:native:${params.remoteSessionId}:${key}:${action}` });
+      // The relay echo and the native transcript describe the same user input.
+      // Keep the native record id, but share the producer's reconciliation identity.
+      if (entry.item.type === 'userMessage') {
+        const clientId = entry.item.clientId;
+        const localId = typeof clientId === 'string' && clientId.length > 0
+          ? clientId : `codex-app-server-user:${params.remoteSessionId}:${entry.item.id}`;
+        for (const message of messages) message.localId = localId;
+      }
+      if (entry.item.type === 'agentMessage' || entry.item.type === 'reasoning') {
+        const kind = entry.item.type === 'agentMessage' ? 'assistant' : 'reasoning';
+        // Matches appServer/runtime's item stream key, including across reconnects.
+        const localId = `${params.remoteSessionId}:${kind}:${entry.item.id}`;
+        for (const message of messages) {
+          message.localId = localId;
+          const meta = message.raw.meta && typeof message.raw.meta === 'object' ? message.raw.meta : {};
+          message.raw = { ...message.raw, meta: { ...meta, happierStreamSegmentV1: {
+            v: 1, segmentKind: kind === 'assistant' ? 'assistant' : 'thinking', segmentLocalId: localId,
+            segmentState: entry.completedAtMs === null ? 'streaming' : 'complete',
+            ...(entry.completedAtMs === null ? {} : { updatedAtMs: entry.completedAtMs }),
+          } } };
+        }
+      }
       if (params.direction === 'older') messages.reverse();
       if (offset > messages.length) throw new Error('Codex native history changed its partial item');
       for (; offset < messages.length; offset += 1) {

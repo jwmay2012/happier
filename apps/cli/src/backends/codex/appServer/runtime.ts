@@ -1464,6 +1464,9 @@ export function createCodexAppServerRuntime(params: Readonly<{
     }>({
         provider: 'codex',
         createSessionForStream: () => params.transcriptSession ?? params.session,
+        // Native history uses this same thread/kind/item identity. A fallback without
+        // a provider item id must remain distinct across turns.
+        makeLocalId: ({ streamKey }) => streamKey.endsWith(':raw-response-item') ? randomUUID() : streamKey,
         initialCheckpointDelayMs: CODEX_TRANSCRIPT_INITIAL_CHECKPOINT_DELAY_MS,
     });
     const assistantTextByItemId = new Map<string, string>();
@@ -2471,10 +2474,14 @@ export function createCodexAppServerRuntime(params: Readonly<{
         }
     };
 
-    const appendStreamDelta = (itemKey: string, text: string, values: Map<string, string>, append: (deltaText: string) => void): void => {
+    const appendStreamDelta = (itemKey: string, text: string, values: Map<string, string>, append: (deltaText: string) => void, restore: (text: string) => void): void => {
         if (!text) return;
+        const accumulated = values.get(itemKey) ?? '';
+        // A tool boundary may have closed the writer while this native item is
+        // still open. Its next snapshot must retain the prefix under the same id.
+        if (accumulated) restore(accumulated);
         append(text);
-        values.set(itemKey, `${values.get(itemKey) ?? ''}${text}`);
+        values.set(itemKey, `${accumulated}${text}`);
     };
 
     const appendStreamFinal = (
@@ -2489,11 +2496,6 @@ export function createCodexAppServerRuntime(params: Readonly<{
         if (!text) return;
         if (!accumulated) {
             append(text);
-            return;
-        }
-        if (text.startsWith(accumulated)) {
-            const suffix = text.slice(accumulated.length);
-            if (suffix) append(suffix);
             return;
         }
         override(text);
@@ -2668,7 +2670,7 @@ export function createCodexAppServerRuntime(params: Readonly<{
             if (typeof params.session.sendUserTextMessageCommitted !== 'function') return;
             await flushItemTranscriptBoundary(null);
             await params.session.sendUserTextMessageCommitted(update.text, {
-                localId: `codex-app-server-user:${context.streamScopeId}:${update.itemId}`,
+                localId: clientId ?? `codex-app-server-user:${context.streamScopeId}:${update.itemId}`,
                 meta: { importedFrom: 'codex-app-server' },
             });
             return;
@@ -2725,7 +2727,9 @@ export function createCodexAppServerRuntime(params: Readonly<{
                     streamKey: buildAssistantItemStreamKey(context.streamScopeId, update.itemId),
                     sidechainId: context.sidechainId,
                 });
-            });
+            }, (text) => itemTranscriptBridge.overrideAssistantText({
+                text, streamKey: buildAssistantItemStreamKey(context.streamScopeId, update.itemId), sidechainId: context.sidechainId,
+            }));
             return;
         }
 
@@ -2872,7 +2876,9 @@ export function createCodexAppServerRuntime(params: Readonly<{
                     streamKey: buildItemStreamKey(context.streamScopeId, 'reasoning', update.itemId),
                     sidechainId: context.sidechainId,
                 });
-            });
+            }, (text) => itemTranscriptBridge.overrideThinkingText({
+                text, streamKey: buildItemStreamKey(context.streamScopeId, 'reasoning', update.itemId), sidechainId: context.sidechainId,
+            }));
             return;
         }
 

@@ -4,6 +4,7 @@ import { basename, dirname, join } from 'node:path';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { configuration } from '@/configuration';
+import { isExternalNetworkAccessEnabled } from '@/utils/externalNetworkAccess';
 import { resolveExistingManagedJavaScriptRuntimeCommand } from '@/runtime/js/managedJavaScriptRuntime';
 import { readRuntimeInstallableLastCheckAtMs } from '@/installables/runtime/runtimeInstallableUpdateState';
 import { downloadGitHubReleaseAsset, extractGitHubReleaseAsset } from '@happier-dev/cli-common/providers';
@@ -233,7 +234,7 @@ export async function getCodexAcpDepStatus(opts?: {
     resolvedBinPath = candidatePath;
     break;
   }
-  const includeLatestVersion = opts?.includeLatestVersion === true;
+  const includeLatestVersion = opts?.includeLatestVersion === true && isExternalNetworkAccessEnabled();
   const onlyIfInstalled = opts?.onlyIfInstalled === true;
   const latestVersionCheck = includeLatestVersion && (!onlyIfInstalled || resolvedBinPath !== null)
     ? await detectLatestVersionCheck()

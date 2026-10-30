@@ -16,6 +16,13 @@ describe('tmux session resource policy', () => {
   const originalPlatform = process.platform;
   let commandDirectory: string | null = null;
 
+  it('forwards host privacy controls to an existing tmux server', async () => {
+    const config = await buildTmuxSpawnConfig({ agent: 'codex', directory: '/tmp', extraEnv: {}, processEnv: {
+      HAPPIER_EXTERNAL_NETWORK_ACCESS: '0', HAPPIER_CLI_UPDATE_CHECK: '0', HAPPIER_BUILD_FEATURES_DENY: 'bugReports,voice,connectedServices',
+    } });
+    expect(config.tmuxEnv).toMatchObject({ HAPPIER_EXTERNAL_NETWORK_ACCESS: '0', HAPPIER_CLI_UPDATE_CHECK: '0', HAPPIER_BUILD_FEATURES_DENY: 'bugReports,voice,connectedServices' });
+  });
+
   beforeEach(() => {
     vi.mocked(getPriority).mockReturnValue(0);
   });

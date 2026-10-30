@@ -1,5 +1,6 @@
 import { ensureManagedJavaScriptRuntimeCommand } from './managedJavaScriptRuntime';
 import { resolveJavaScriptRuntimeExecutable } from './resolveJavaScriptRuntimeExecutable';
+import { isExternalNetworkAccessEnabled } from '@/utils/externalNetworkAccess';
 
 export async function ensureJavaScriptRuntimeExecutable(params: Readonly<{
   isBunRuntime: boolean;
@@ -13,5 +14,6 @@ export async function ensureJavaScriptRuntimeExecutable(params: Readonly<{
     currentExecPath: params.currentExecPath,
   });
   if (resolved) return resolved;
+  if (!isExternalNetworkAccessEnabled(processEnv)) return null;
   return await ensureManagedJavaScriptRuntimeCommand(processEnv);
 }

@@ -23,6 +23,20 @@ describe('dispatchActivityNotificationAsync', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it('suppresses external channels even when account notifications are enabled', async () => {
+    vi.stubEnv('HAPPIER_EXTERNAL_NETWORK_ACCESS', '0');
+    const sendToAllDevicesAsync = vi.fn(async () => {});
+    const settings = accountSettingsParse({ notificationChannelsV1: [
+      { v: 1, id: 'expo', kind: 'expo_push', enabled: true, topics: { ready: true } },
+      { v: 1, id: 'hook', kind: 'webhook', enabled: true, url: 'https://hooks.example.test/happier', topics: { ready: true } },
+    ] });
+    const result = await dispatchActivityNotificationAsync({ settings, expoPushSender: { sendToAllDevicesAsync }, event: { topic: 'ready', sessionId: 'session-1', waitingForCommandLabel: 'Codex' } });
+    expect(result).toMatchObject({ attemptedChannels: 0, deliveredChannels: 0 });
+    expect(sendToAllDevicesAsync).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('keeps full permission details only in channels that include request text', async () => {

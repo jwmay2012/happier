@@ -7,6 +7,7 @@ import {
 } from '@happier-dev/protocol';
 
 import type { ScmBackendContext } from '../../../types';
+import { isExternalNetworkAccessEnabled } from '@/utils/externalNetworkAccess';
 import {
     resolveGithubConnectedAccountToken,
     type GithubConnectedAccountTokenResolution,
@@ -96,7 +97,7 @@ export async function resolveHostingAuthProfileKey(input: {
     detectGithubCliAuth?: GithubCliAuthDetector;
     detectGitlabCliAuth?: GitlabCliAuthDetector;
 }): Promise<string | null> {
-    if (!input.provider) return null;
+    if (!input.provider || !isExternalNetworkAccessEnabled()) return null;
 
     if (input.provider.kind === 'github') {
         const connectedAccount = await resolveGithubConnectedAccountAuth({

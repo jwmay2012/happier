@@ -338,6 +338,8 @@ export const NewSessionSimplePanel = React.memo(function NewSessionSimplePanel(p
         <ComposerKeyboardScaffold
             testID="new-session-keyboard-host"
             mode="newSession"
+            // Expo Router's web modal already follows the visual viewport above the keyboard.
+            keyboardLiftSuppressed={Platform.OS === 'web'}
             contentTestID="new-session-keyboard-content"
             composerTestID="new-session-composer-keyboard-host"
             // `useHeaderHeight()` is a platform constant, not a measurement, so it still reports a

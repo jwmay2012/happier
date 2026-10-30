@@ -761,6 +761,8 @@ async function writeFakeCodexAppServerScript(params: Readonly<{
         '            }, 8);',
         '            setTimeout(() => {',
         '                process.stdout.write(JSON.stringify({ method: "item/completed", params: { item: { id: "cmd_1", type: "commandExecution", stdout: "done", exitCode: 0 } } }) + "\\n");',
+        '                process.stdout.write(JSON.stringify({ method: "item/agentMessage/delta", params: { itemId: "msg_1", delta: "wo" } }) + "\\n");',
+        '                process.stdout.write(JSON.stringify({ method: "item/reasoning/textDelta", params: { itemId: "reason_1", delta: " h" } }) + "\\n");',
         '            }, 9);',
         '            setTimeout(() => {',
         '                process.stdout.write(JSON.stringify({ method: "item/started", params: { item: { id: "tool_1", type: "mcpToolCall", server: "playwright", tool: "browser_navigate", arguments: { url: "https://example.com" } } } }) + "\\n");',
@@ -5252,10 +5254,10 @@ describe('createCodexAppServerRuntime', () => {
             .filter((body: any) => body?.type === 'thinking' && !body?.sidechainId)
             .map((body: any) => String(body.text ?? ''));
 
-        expect(assistantMessages.some((msg) => msg.includes('Hello'))).toBe(true);
-        expect(assistantMessages.some((msg) => msg.includes('world'))).toBe(true);
-        expect(thinkingMessages.some((msg) => msg.includes('thinking'))).toBe(true);
-        expect(thinkingMessages.some((msg) => msg.includes('hard'))).toBe(true);
+        expect(assistantMessages.at(-1)).toBe('Hello world');
+        expect(thinkingMessages.at(-1)).toBe('thinking hard');
+        expect(new Set(committedCalls.filter(([, body]) => body.type === 'message').map(([, , opts]) => opts.localId)))
+            .toEqual(new Set(['thread-started:assistant:msg_1']));
         expect(session.sendCodexMessage.mock.calls).toEqual(
             expect.arrayContaining([
                 [expect.objectContaining({ type: 'tool-call', callId: 'cmd_1', name: 'CodexBash', input: { command: 'ls -la', cwd: '/repo' } })],
@@ -5320,7 +5322,7 @@ describe('createCodexAppServerRuntime', () => {
         expect(sendUserTextMessageCommitted).toHaveBeenCalledWith(
             'hello from attached Codex TUI',
             {
-                localId: 'codex-app-server-user:thread-started:native_user_1',
+                localId: 'native-tui-client-1',
                 meta: { importedFrom: 'codex-app-server' },
             },
         );
@@ -5350,7 +5352,7 @@ describe('createCodexAppServerRuntime', () => {
         expect(sendUserTextMessageCommitted).toHaveBeenCalledWith(
             'hello from attached Codex TUI',
             {
-                localId: 'codex-app-server-user:thread-started:native_user_1',
+                localId: 'native-tui-client-1',
                 meta: { importedFrom: 'codex-app-server' },
             },
         );
@@ -6549,16 +6551,10 @@ describe('createCodexAppServerRuntime', () => {
             .filter((body) => body?.type === 'message' && body.sidechainId === JSON.stringify(['thread-child', 'turn-child']))
             .map((body) => String(body.message ?? ''));
         expect(childAssistantMessages.some((value) => value.includes('Child'))).toBe(true);
-        expect(childAssistantMessages.some((value) => value.includes('final'))).toBe(true);
+        expect(childAssistantMessages.at(-1)).toBe('Child final');
         expect(session.sendAgentMessageCommitted.mock.calls).toEqual(
             expect.arrayContaining([
                 ['codex', expect.objectContaining({ type: 'message', message: 'Parent final' }), expect.any(Object)],
-            ]),
-        );
-        expect(session.sendAgentMessageCommitted.mock.calls).not.toEqual(
-            expect.arrayContaining([
-                ['codex', expect.objectContaining({ type: 'message', message: 'Child ' }), expect.any(Object)],
-                ['codex', expect.objectContaining({ type: 'message', message: 'Child final' }), expect.any(Object)],
             ]),
         );
         expect(session.sendAgentMessage.mock.calls).toEqual(

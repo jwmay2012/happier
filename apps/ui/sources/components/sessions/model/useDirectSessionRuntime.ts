@@ -97,8 +97,9 @@ export function useDirectSessionRuntime(params: UseDirectSessionRuntimeParams): 
     const [status, setStatus] = React.useState<DirectSessionRuntimeStatus | null>(null);
     const statusRef = React.useRef<DirectSessionRuntimeStatus | null>(null);
     const inFlightRefreshRef = React.useRef<Promise<DirectSessionRuntimeStatus | null> | null>(null);
+    const inFlightTranscriptRefreshRef = React.useRef<Promise<void> | null>(null);
     const generationRef = React.useRef(0);
-    const previousServerIdRef = React.useRef<string | undefined>(undefined);
+    const previousOwnerKeyRef = React.useRef<string | undefined>(undefined);
     const activeServerId = normalizeServerId(activeServerSnapshot.serverId);
     // A disabled runtime resolves nothing. Every other branch below already short-circuits on
     // `enabled`, but this one used to reach into the session/server cache on every render of every
@@ -108,25 +109,26 @@ export function useDirectSessionRuntime(params: UseDirectSessionRuntimeParams): 
         () => (enabled ? resolvePreferredServerIdForSessionId(params.sessionId) ?? activeServerId : undefined),
         [activeServerId, enabled, params.sessionId],
     );
+    const ownerKey = JSON.stringify([enabled, params.sessionId, sessionServerId,
+        directSessionLink?.machineId, directSessionLink?.providerId, directSessionLink?.remoteSessionId, directSessionLink?.source]);
 
     React.useEffect(() => {
         statusRef.current = status;
     }, [status]);
 
     React.useEffect(() => {
-        if (previousServerIdRef.current === sessionServerId) {
+        if (previousOwnerKeyRef.current === ownerKey) {
             return;
         }
-        if (previousServerIdRef.current !== undefined) {
-            inFlightRefreshRef.current = null;
-            generationRef.current += 1;
-            if (statusRef.current !== null) {
-                statusRef.current = null;
-                setStatus(null);
-            }
+        inFlightRefreshRef.current = null;
+        inFlightTranscriptRefreshRef.current = null;
+        generationRef.current += 1;
+        if (statusRef.current !== null) {
+            statusRef.current = null;
+            setStatus(null);
         }
-        previousServerIdRef.current = sessionServerId;
-    }, [sessionServerId]);
+        previousOwnerKeyRef.current = ownerKey;
+    }, [ownerKey]);
 
     const refreshNow = React.useCallback(async (): Promise<DirectSessionRuntimeStatus | null> => {
         if (!enabled) {
@@ -158,7 +160,12 @@ export function useDirectSessionRuntime(params: UseDirectSessionRuntimeParams): 
                 .then((response) => ({ ok: true as const, response }))
                 .catch((error: unknown) => ({ ok: false as const, error }));
 
-            await sync.refreshSessionMessages(params.sessionId).catch(() => {});
+            if (!inFlightTranscriptRefreshRef.current) {
+                const transcriptRefresh = sync.refreshSessionMessages(params.sessionId).catch(() => {}).finally(() => {
+                    if (inFlightTranscriptRefreshRef.current === transcriptRefresh) inFlightTranscriptRefreshRef.current = null;
+                });
+                inFlightTranscriptRefreshRef.current = transcriptRefresh;
+            }
 
             const statusResult = await statusPromise;
             if (!statusResult.ok) {

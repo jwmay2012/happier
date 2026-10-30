@@ -122,7 +122,7 @@ describe('useDirectSessionRuntime', () => {
 
   it('returns the current status instead of rejecting when status refresh fails', async () => {
     const refreshMessages = createDeferred<void>();
-    machineDirectSessionStatusGetSpy.mockRejectedValueOnce(Object.assign(new Error('RPC method not available'), {
+    machineDirectSessionStatusGetSpy.mockRejectedValue(Object.assign(new Error('RPC method not available'), {
       rpcErrorCode: 'RPC_METHOD_NOT_AVAILABLE',
     }));
     refreshSessionMessagesSpy.mockReturnValueOnce(refreshMessages.promise);
@@ -137,6 +137,57 @@ describe('useDirectSessionRuntime', () => {
     await expect(refreshPromise).resolves.toBeNull();
     expect(harness.getCurrent().status).toBeNull();
     await harness.unmount();
+  });
+
+  it('publishes takeover readiness without waiting for transcript loading', async () => {
+    const refreshMessages = createDeferred<void>();
+    refreshSessionMessagesSpy.mockReturnValue(refreshMessages.promise);
+    machineDirectSessionStatusGetSpy.mockResolvedValue({
+      ok: true, machineOnline: true, activity: 'idle', runnerActive: false,
+      canTakeOverDirect: true, canTakeOverPersist: true, canForceStop: false, trustedPid: null,
+    });
+
+    const harness = await renderHarness();
+    try {
+      expect(harness.getCurrent().status).toMatchObject({ machineOnline: true, canTakeOverDirect: true });
+      await expect(harness.getCurrent().refreshNow()).resolves.toMatchObject({ canTakeOverDirect: true });
+      await expect(harness.getCurrent().refreshNow()).resolves.toMatchObject({ canTakeOverDirect: true });
+      expect(refreshSessionMessagesSpy).toHaveBeenCalledTimes(1);
+      await act(async () => { refreshMessages.resolve(); await refreshMessages.promise; });
+      await harness.getCurrent().refreshNow();
+      expect(refreshSessionMessagesSpy).toHaveBeenCalledTimes(2);
+    } finally {
+      refreshMessages.resolve();
+      await harness.unmount();
+    }
+  });
+
+  it.each(['session', 'link', 'disabled', 'unlinked'] as const)('ignores a delayed status after its %s owner changes', async (change) => {
+    const delayed = createDeferred<NonNullable<HookValue['status']>>();
+    const oldStatus = { ok: true, machineOnline: true, activity: 'idle', runnerActive: false, canTakeOverDirect: true, canTakeOverPersist: true, canForceStop: false } as const;
+    const newStatus = { ...oldStatus, runnerActive: true, canTakeOverDirect: false };
+    machineDirectSessionStatusGetSpy.mockReturnValueOnce(delayed.promise).mockResolvedValue(newStatus);
+    refreshSessionMessagesSpy.mockResolvedValue(undefined);
+    const { useDirectSessionRuntime } = await import('./useDirectSessionRuntime');
+    type Params = Parameters<typeof useDirectSessionRuntime>[0];
+    const initial: Params = {
+      sessionId: 'session-a',
+      enabled: true,
+      metadata: { path: '/tmp/workspace', host: 'test-host', directSessionV1: { v: 1, providerId: 'codex', machineId: 'machine-1', remoteSessionId: 'native-a', source: { kind: 'codexHome', home: 'user' } } },
+    };
+    const hook = await renderHook((params: Params) => useDirectSessionRuntime(params), { initialProps: initial });
+    const next: Params = change === 'session' ? { ...initial, sessionId: 'session-b' }
+      : change === 'link' ? { ...initial, metadata: { path: '/tmp/workspace', host: 'test-host', directSessionV1: { v: 1, providerId: 'codex', machineId: 'machine-1', remoteSessionId: 'native-b', source: { kind: 'codexHome', home: 'user' } } } }
+        : change === 'disabled' ? { ...initial, enabled: false } : { ...initial, metadata: null };
+    try {
+      await hook.rerender(next);
+      await act(async () => { delayed.resolve(oldStatus); await delayed.promise; });
+      if (change === 'disabled' || change === 'unlinked') expect(hook.getCurrent().status).toBeNull();
+      else expect(hook.getCurrent().status).toEqual(newStatus);
+    } finally {
+      delayed.resolve(oldStatus);
+      await hook.unmount();
+    }
   });
 
   it('does not reset the direct-session runtime when the active server changes but the session owner stays the same', async () => {

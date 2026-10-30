@@ -20,6 +20,19 @@ function createAdapter(overrides: Partial<RuntimeInstallableAdapter> = {}): Runt
 }
 
 describe('ensureRuntimeInstallablesForLaunch', () => {
+  it.each([true, false])('does not download or update prerequisites when external access is disabled (installed=%s)', async (installed) => {
+    const adapter = createAdapter({ detectLaunchResolution: vi.fn(async () => ({
+      availability: installed ? { ok: true as const } : { ok: false as const, errorMessage: 'missing' },
+      canAutoInstall: true, canBackgroundAutoUpdate: true,
+    })) });
+    const backgroundUpdate = vi.fn(async () => {});
+    await ensureRuntimeInstallablesForLaunch({
+      installableKeys: [INSTALLABLE_KEYS.CODEX_ACP], settings: accountSettingsParse({}), machineId: 'machine-1', env: { HAPPIER_EXTERNAL_NETWORK_ACCESS: '0' },
+    }, { getRuntimeInstallableAdapter: async () => adapter, startBackgroundRuntimeInstallableUpdate: backgroundUpdate });
+    expect(adapter.installOrUpgrade).not.toHaveBeenCalled();
+    expect(backgroundUpdate).not.toHaveBeenCalled();
+  });
+
   it('installs missing managed prerequisites when auto-install is enabled', async () => {
     const adapter = createAdapter();
     const detectLaunchResolution = vi

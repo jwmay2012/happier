@@ -11,6 +11,7 @@ import { upsertStreamSegmentSnapshotMessage } from '../helpers/upsertStreamSegme
 import { markRunningToolsUnavailable } from '../helpers/markRunningToolsUnavailable';
 import { hasSyntheticNoResponseMeta } from '../../domains/messages/syntheticNoResponseMessageMeta';
 import { normalizeTranscriptSeq, transcriptBlockIndexFromContentIndex } from '../../domains/messages/transcriptOrdering';
+import { reconcileUserMessageEcho } from '../helpers/reconcileUserMessageEcho';
 
 export function runUserAndTextPhase(params: Readonly<{
     state: ReducerState;
@@ -81,7 +82,7 @@ export function runUserAndTextPhase(params: Readonly<{
         };
         if (msg.role === 'user') {
             // Check if we've seen this localId before
-            if (!isRecoveredHistory && msg.localId && state.localIds.has(msg.localId)) {
+            if (reconcileUserMessageEcho({ state, message: msg, changed })) {
                 restoreLiveMergeCursors();
                 continue;
             }
