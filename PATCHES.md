@@ -24,8 +24,8 @@ release-based source relay image builds, including the server typecheck and Expo
 web export, and passes two-account isolation and mobile-width signup. Full UI
 typecheck passes with the complete source checkout and build dependencies.
 The full CLI typecheck and source CLI build also pass with the complete dependency
-installation. The complete upstream test suite and a Kaniko execution have not
-been validated.
+installation. The source relay Dockerfile also builds successfully with Kaniko.
+The complete upstream test suite has not been validated.
 
 Packaging is a separate logical change: `Dockerfile.relay` retains only upstream's
 source relay/UI stages, with the SQLite relay plus web export as its final target.
@@ -70,8 +70,8 @@ available editor height retain the absolute keyboard measurement. The shared
 helper keeps its native worklet annotation;50 web/native geometry tests and the
 UI typecheck pass.
 
-Table cells containing inline links or formatting now use the existing enriched
-Markdown renderer; unchanged plain cells retain their lightweight text path.
+Inline links and recognized formatting in table cells now use the existing
+enriched Markdown renderer; unchanged plain cells retain their lightweight text path.
 Original cell Markdown reaches the rich parser unchanged, preserving globs,
 literal code and complete URL destinations. Real-renderer regression coverage
 includes nested bold links, parenthesized URLs, safe link activation and unsafe
